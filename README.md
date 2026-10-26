@@ -2,7 +2,7 @@
 
 An opt-in `/fast` command for models with verified paid fast/priority support in Pi. Currently supports **OpenAI GPT-6.1 Sol**. Packaged as a reusable Pi extension; no build step or runtime dependencies.
 
-Requires **Pi 1.4.0 or newer** with the unified `openai` provider. Tested against Pi 1.4.0. Older `@mariozechner`-based Pi versions and the legacy `openai-codex` provider are not supported.
+Requires **Pi 1.4.0 or newer** with the unified `openai` provider. Older `@mariozechner`-based Pi versions and the legacy `openai-codex` provider are not supported.
 
 ## Supported models
 
@@ -14,10 +14,10 @@ Support is explicitly scoped; newly released models are not automatically opted 
 
 ## Install
 
-Install the pinned GitHub version (the private repository requires GitHub access):
+Install the pinned GitHub version:
 
 ```sh
-pi install git:github.com/lilfrogdev/pi-fast-models@v0.1.0
+pi install git:github.com/lilfrogdev/pi-fast-models@v0.1.1
 ```
 
 Or keep a local clone somewhere permanent, then register it with Pi:
@@ -72,7 +72,7 @@ This requests a different serving tier; it does **not** change the model or redu
 
 Copy or clone this directory and run the same local `pi install` command. Keep `package.json`, `index.ts`, `README.md`, and `LICENSE`; development dependencies are not needed at runtime.
 
-The GitHub repository is [lilfrogdev/pi-fast-models](https://github.com/lilfrogdev/pi-fast-models). For a repeatable installation, use the pinned `v0.1.0` tag shown above. A private repository requires authenticated Git access, for example through `gh auth login` and `gh auth setup-git`.
+The public GitHub repository is [lilfrogdev/pi-fast-models](https://github.com/lilfrogdev/pi-fast-models). For a repeatable installation, use the pinned `v0.1.1` tag shown above.
 
 This package has not been published to npm.
 
@@ -84,19 +84,14 @@ pi remove /path/to/pi-fast-models
 
 Then reload Pi. This removes its registration, not your source directory.
 
-## Develop and verify
+## Development
 
 With Node.js 22.19+:
 
 ```sh
 npm ci --ignore-scripts
 npm run typecheck
-npm test
 ```
-
-Unit tests use a mock ExtensionAPI and inspect payload transformations without contacting a model provider. A separate smoke test starts a real Pi executable in an isolated temporary home with no credentials, offline startup, and MCP disabled. It verifies package loading and slash-command handling, without starting a model run. The smoke test is skipped if `pi` is unavailable; set `PI_BIN=/path/to/pi` to choose an executable.
-
-Actual OpenAI acceptance/performance has not been live-tested. Enabling and sending your next prompt is a paid operation subject to your account's terms.
 
 ## License
 

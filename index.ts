@@ -18,7 +18,6 @@ function supportsModel(model: Model): model is NonNullable<Model> {
     return false;
   }
 
-  // Do not assume a custom OpenAI-compatible gateway implements these tiers.
   try {
     const url = new URL(model.baseUrl);
     const path = url.pathname.replace(/\/+$/, "");
@@ -36,7 +35,6 @@ function supportsModel(model: Model): model is NonNullable<Model> {
 }
 
 function requestedTier(ctx: ExtensionContext): "fast" | "priority" {
-  // Pi 1.4's unified OpenAI provider uses the ChatGPT protocol for OAuth.
   return ctx.model && ctx.modelRegistry.isUsingOAuth(ctx.model)
     ? "fast"
     : "priority";
@@ -50,13 +48,11 @@ function notify(
   if (ctx.hasUI) {
     ctx.ui.notify(message, level);
   } else {
-    // Preserve stdout for print-mode output and JSON/RPC protocol records.
     console.error(`[pi-fast-models] ${message}`);
   }
 }
 
 export default function fastModels(pi: ExtensionAPI): void {
-  // Deliberately not persisted: restart, reload, and session replacement reset it.
   let enabled = false;
 
   function updateStatus(ctx: ExtensionContext, model: Model = ctx.model): void {
@@ -150,7 +146,6 @@ export default function fastModels(pi: ExtensionAPI): void {
       return;
     }
 
-    // Preserve all other fields and earlier extensions' transformations.
     return { ...payload, service_tier: requestedTier(ctx) };
   });
 }

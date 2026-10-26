@@ -1,6 +1,6 @@
 {
   "name": "pi-fast-models",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Opt-in paid fast/priority serving for supported models in Pi.",
   "repository": {
     "type": "git",
@@ -16,7 +16,6 @@
     "extensions": ["./index.ts"]
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
