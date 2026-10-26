@@ -1,6 +1,6 @@
 # pi-fast-models
 
-An opt-in `/fast` command for models with verified paid fast/priority support in Pi. Currently supports **OpenAI GPT-6.1 Sol**. Packaged as a reusable Pi extension; no build step or runtime dependencies.
+Automatic fast/priority serving for supported models in Pi, with a `/fast` command to toggle it. Currently supports **OpenAI GPT-6.1 Sol**. Packaged as a reusable Pi extension; no build step or runtime dependencies.
 
 Requires **Pi 1.4.0 or newer** with the unified `openai` provider. Older `@mariozechner`-based Pi versions and the legacy `openai-codex` provider are not supported.
 
@@ -8,7 +8,7 @@ Requires **Pi 1.4.0 or newer** with the unified `openai` provider. Older `@mario
 
 | Provider | Model | ChatGPT sign-in tier | API-key tier |
 | --- | --- | --- | --- |
-| `openai` | `gpt-6.1-sol` | `fast` | `priority` |
+| `openai` | `gpt-6.1-sol` | `priority` | `priority` |
 
 Support is explicitly scoped; newly released models are not automatically opted into higher-cost serving. More models can be added after their service-tier behavior is verified.
 
@@ -28,31 +28,34 @@ pi install /path/to/pi-fast-models
 
 Local packages are loaded from that directory, not copied. Run `/reload` in an existing Pi session, or start a new session.
 
-No `npm install` is needed to use the extension. Its only host import is a TypeScript type import, removed at load time.
+No `npm install` is needed to use the extension. Pi supplies its host imports at load time.
 
 ## Use
 
 1. Authenticate with OpenAI using `/login` if necessary.
 2. Select `openai/gpt-6.1-sol` with `/model`.
-3. Run `/fast on` when you want to opt into higher-cost serving.
+3. Fast mode is enabled automatically. Use `/fast off` to disable it for this session.
+
+Fast/priority serving can increase OpenAI costs or subscription usage. Enabling and disabling are silent; use `/fast status` for details.
 
 | Command | Behavior |
 | --- | --- |
 | `/fast` | Toggle on/off |
-| `/fast on` | Opt into the paid fast/priority tier for the selected Sol model |
+| `/fast on` | Enable fast/priority serving for the selected Sol model |
 | `/fast off` | Stop modifying subsequent requests |
 | `/fast status` | Show whether it is enabled and which tier it requests |
 
-In the terminal footer, `fast: ON (paid)` means the extension is requesting fast serving. It is **not confirmation that OpenAI has granted the requested tier**.
+In the terminal footer, fast mode adds a tag to Pi's normal model label: `fast • gpt-6.1-sol • medium`. The thinking level remains whatever you selected. The tag means the extension is requesting fast serving, **not confirmation that OpenAI has granted the requested tier**.
+
+The extension decorates Pi's stock footer renderer only while fast mode is on for a supported model. Switching to another model or using `/fast off` restores the unmodified renderer. Path, usage, context, provider labels, and other extension statuses still come from Pi. On very narrow terminals, the tag is omitted if the full model ID cannot fit. A footer supplied by another extension is not replaced; it will show the tag only if it uses Pi's stock renderer.
 
 ### Request behavior
 
-When explicitly enabled, the extension sets the outgoing request's `service_tier`:
+When enabled, the extension sets the outgoing request's `service_tier` to `"priority"` for both ChatGPT sign-in (OAuth) and API keys. It does not read, copy, or store credentials.
 
-- **Sign in with ChatGPT (OAuth):** `"fast"`.
-- **OpenAI API key:** `"priority"`.
+### `Unsupported service_tier: fast` (HTTP 400)
 
-The distinction follows Pi 1.4's unified OpenAI provider. The extension uses Pi's reported authentication method; it does not read, copy, or store credentials. Avoid mixing a stored ChatGPT login with a temporary `--api-key` override: use the intended login method so the reported authentication method matches the credential used.
+Earlier versions sent the literal tier `"fast"` for ChatGPT sign-in. That value can be rejected by the backend. OpenAI's [Codex implementation](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/config_types.rs) maps the user-facing Fast mode to `"priority"` in requests; this extension now does the same. A minimal live request with the current OpenAI credentials and `gpt-6.1-sol` succeeded with `"priority"`. This verifies request acceptance for that account/model, not the tier actually granted or eligibility for other accounts. No automatic fallback or retry is performed.
 
 This requests a different serving tier; it does **not** change the model or reduce its thinking level. The hook applies to matching provider requests made by Pi while enabled, potentially including matching maintenance requests such as compaction. It does not add a search tool or change requests made independently by other extensions.
 
@@ -60,8 +63,8 @@ This requests a different serving tier; it does **not** change the model or redu
 
 ## Safety and scope
 
-- **Off by default.** Restarting, reloading, resuming/replacing a session, or starting a new session resets the extension to off. There is no persistent paid-mode preference.
-- Switching away from the supported model turns it off. Switching back does not silently turn it on again.
+- **On by default for supported models.** Restarting, reloading, resuming/replacing a session, or starting a new session resets to this default. There is no persistent preference.
+- Unsupported models are never modified. Returning to a supported model enables fast mode unless you used `/fast off` in this session; that opt-out survives model switches.
 - Only `openai/gpt-6.1-sol` using `openai-responses` and an official OpenAI endpoint is supported. Other models, providers, API protocols, and custom gateways are left alone.
 - The request payload must also name `gpt-6.1-sol`; another model's request is never rewritten.
 - Enabling is refused during an active run. Disabling is immediate for future requests but cannot change or refund an in-flight request.

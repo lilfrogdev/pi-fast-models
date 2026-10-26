@@ -1,7 +1,7 @@
 {
   "name": "pi-fast-models",
   "version": "0.1.1",
-  "description": "Opt-in paid fast/priority serving for supported models in Pi.",
+  "description": "Default-on fast/priority serving for supported models in Pi.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lilfrogdev/pi-fast-models.git"
