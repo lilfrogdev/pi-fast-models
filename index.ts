@@ -72,8 +72,7 @@ export default function fastModels(pi: ExtensionAPI): void {
       if (index < 0) return lines;
 
       lines[1] = compactLine.slice(0, index)
-        + ctx.ui.theme.fg("accent", "fast")
-        + ctx.ui.theme.fg("dim", " • " + compactLine.slice(index));
+        + ctx.ui.theme.fg("dim", prefix + compactLine.slice(index));
       return lines;
     };
 
