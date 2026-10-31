@@ -4,15 +4,24 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-const MODEL_ID = "gpt-6.1-sol";
-const MODEL_NAME = "openai/gpt-6.1-sol";
+const MODEL_IDS = new Set([
+  "gpt-6.1-sol",
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
+  "gpt-5.4",
+  "gpt-5.5",
+  "gpt-5.6-luna",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+]);
 
 type Model = ExtensionContext["model"];
 
 function supportsModel(model: Model): model is NonNullable<Model> {
   if (
     model?.provider !== "openai" ||
-    model.id !== MODEL_ID ||
+    !MODEL_IDS.has(model.id) ||
     model.api !== "openai-responses"
   ) {
     return false;
@@ -54,6 +63,10 @@ export default function fastModels(pi: ExtensionAPI): void {
     return supportsModel(model) && preference !== false;
   }
 
+  function requestedTier(ctx: ExtensionContext): "fast" | "priority" {
+    return ctx.model && ctx.modelRegistry.isUsingOAuth(ctx.model) ? "priority" : "fast";
+  }
+
   function updateFooter(ctx: ExtensionContext, model: Model = ctx.model): void {
     if (ctx.mode !== "tui") return;
     restoreFooter?.();
@@ -68,7 +81,7 @@ export default function fastModels(pi: ExtensionAPI): void {
       const prefix = "fast • ";
       if (width <= prefix.length) return lines;
       const compactLine = originalRender.call(this, width - prefix.length)[1];
-      const index = compactLine?.indexOf(MODEL_ID) ?? -1;
+      const index = compactLine?.indexOf(ctx.model!.id) ?? -1;
       if (index < 0) return lines;
 
       lines[1] = compactLine.slice(0, index)
@@ -99,7 +112,7 @@ export default function fastModels(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("fast", {
-    description: "Toggle fast mode (on by default) for GPT-6.1 Sol: /fast [on|off|status]",
+    description: "Toggle fast mode (on by default) for supported OpenAI models: /fast [on|off|status]",
     getArgumentCompletions: (prefix) => {
       const choices = ["on", "off", "status"].filter((value) =>
         value.startsWith(prefix.toLowerCase()),
@@ -119,8 +132,8 @@ export default function fastModels(pi: ExtensionAPI): void {
         notify(
           ctx,
           isEnabled(ctx.model)
-            ? `Fast mode ON for ${MODEL_NAME}: requesting service_tier="priority".`
-            : `Fast mode OFF.${supportsModel(ctx.model) ? " Use /fast on to enable." : ` Select ${MODEL_NAME} to use fast mode.`}`,
+            ? `Fast mode ON for ${ctx.model!.provider}/${ctx.model!.id}: requesting service_tier="${requestedTier(ctx)}".`
+            : `Fast mode OFF.${supportsModel(ctx.model) ? " Use /fast on to enable." : " Select a supported OpenAI model to use fast mode."}`,
         );
         return;
       }
@@ -129,7 +142,7 @@ export default function fastModels(pi: ExtensionAPI): void {
       if (next && !supportsModel(ctx.model)) {
         notify(
           ctx,
-          `Fast mode is only supported for ${MODEL_NAME} on an official OpenAI endpoint. Select it with /model first.`,
+          "Fast mode requires a supported OpenAI model on an official OpenAI endpoint. Select one with /model first.",
           "warning",
         );
         return;
@@ -152,11 +165,11 @@ export default function fastModels(pi: ExtensionAPI): void {
       typeof payload !== "object" ||
       Array.isArray(payload) ||
       !("model" in payload) ||
-      payload.model !== MODEL_ID
+      payload.model !== ctx.model?.id
     ) {
       return;
     }
 
-    return { ...payload, service_tier: "priority" };
+    return { ...payload, service_tier: requestedTier(ctx) };
   });
 }
