@@ -1,6 +1,6 @@
 {
   "name": "pi-fast-models",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Default-on fast/priority serving for supported models in Pi.",
   "repository": {
     "type": "git",
@@ -10,10 +10,21 @@
   "bugs": "https://github.com/lilfrogdev/pi-fast-models/issues",
   "type": "module",
   "license": "MIT",
-  "keywords": ["pi-package", "pi", "openai", "fast-mode"],
-  "files": ["index.ts", "README.md", "LICENSE"],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "openai",
+    "fast-mode"
+  ],
+  "files": [
+    "index.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -22,7 +33,9 @@
     "@earendil-works/pi-coding-agent": ">=1.4.0"
   },
   "peerDependenciesMeta": {
-    "@earendil-works/pi-coding-agent": {"optional": true}
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "1.4.0",
