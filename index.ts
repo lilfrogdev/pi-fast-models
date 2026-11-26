@@ -61,12 +61,13 @@ function notify(
 }
 
 export default function fastModels(pi: ExtensionAPI): void {
-  let preference: SpeedMode = "fast";
+  let preference: SpeedMode | undefined;
   let restoreFooter: (() => void) | undefined;
 
   function effectiveMode(model: Model): SpeedMode {
     if (!supportsModel(model) || preference === "off") return "off";
-    return preference === "ultrafast" && MODEL_CAPABILITIES.get(model.id) === "ultrafast"
+    const requested = preference ?? (model.id === "gpt-6.2-sol" ? "ultrafast" : "fast");
+    return requested === "ultrafast" && MODEL_CAPABILITIES.get(model.id) === "ultrafast"
       ? "ultrafast"
       : "fast";
   }
@@ -108,7 +109,7 @@ export default function fastModels(pi: ExtensionAPI): void {
   }
 
   pi.on("session_start", (_event, ctx) => {
-    preference = "fast";
+    preference = undefined;
     updateFooter(ctx);
   });
 
@@ -122,7 +123,7 @@ export default function fastModels(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("fast", {
-    description: "Toggle Fast (default) or opt into Ultrafast for supported OpenAI models: /fast [on|off|ultrafast|status]",
+    description: "Toggle speed mode (Ultrafast by default for GPT 6.2 Sol, Fast for other supported OpenAI models): /fast [on|off|ultrafast|status]",
     getArgumentCompletions: (prefix) => {
       const choices = ["on", "off", "ultrafast", "status"].filter((value) =>
         value.startsWith(prefix.toLowerCase()),
@@ -145,7 +146,7 @@ export default function fastModels(pi: ExtensionAPI): void {
           (mode !== "off"
             ? `${mode === "ultrafast" ? "Ultrafast" : "Fast"} mode ON for ${ctx.model!.provider}/${ctx.model!.id}: requesting service_tier="${requestedTier(ctx, mode)}".`
             : `Fast mode OFF.${supportsModel(ctx.model) ? " Use /fast on to enable." : " Select a supported OpenAI model to use fast mode."}`)
-            + ` Session preference: ${preference}.`,
+            + ` Session preference: ${preference ?? "automatic (model default)"}.`,
         );
         return;
       }
