@@ -1,10 +1,15 @@
 # pi-fast-models
 
-Fast mode for supported **OpenAI models** in Pi. Enabled by default, with a `/fast` command to toggle it.
+Fast and Ultrafast modes for supported **OpenAI models** in Pi. Fast is enabled by default. Use `/fast ultrafast` to opt into Ultrafast on GPT 6.2 Sol and Astra.
 
 Requires **Pi 1.4.0+**. Supports the native `openai` provider using `openai-responses` on official OpenAI endpoints, with ChatGPT sign-in or an API key. Other models, legacy providers, and custom gateways are left unchanged.
 
-Supported models:
+Models supporting Fast and Ultrafast:
+
+- `gpt-6.2-sol`
+- `gpt-6.2-astra`
+
+Models supporting Fast only:
 
 - `gpt-6.1-sol`
 - `gpt-6-astra`
@@ -40,16 +45,20 @@ fast • gpt-6.1-sol • medium
 
 | Command | Action |
 | --- | --- |
-| `/fast` | Toggle fast mode |
-| `/fast on` | Enable fast mode |
-| `/fast off` | Disable fast mode |
-| `/fast status` | Show current state and requested tier |
+| `/fast` | Turn the active speed mode off, or switch from off to Fast |
+| `/fast on` | Select Fast |
+| `/fast ultrafast` | Select Ultrafast on GPT 6.2 Sol or Astra |
+| `/fast off` | Disable both speed modes |
+| `/fast status` | Show effective mode, requested tier, and session preference |
 
-- Requests `service_tier="fast"` for API-key access or `service_tier="priority"` for ChatGPT sign-in, without changing the model or thinking level.
-- Authentication is checked on every request, so changing authentication changes the requested tier.
-- `/fast off` is respected across model switches. Reloading or starting/resuming a session resets to on by default.
-- The tag disappears when disabled or using an unsupported model.
-- Fast mode is charged at higher rates than standard speed, increasing API costs or subscription usage. The tag indicates a request, not a guarantee of priority serving.
+- Fast requests `service_tier="fast"` for API-key access or `service_tier="priority"` for ChatGPT sign-in. Ultrafast requests `service_tier="ultrafast"` for either authentication type. Neither changes the model or thinking level.
+- Authentication is checked on every request, so changing authentication changes the Fast tier.
+- The session preference survives model switches. With Ultrafast selected, switching to a Fast-only model uses Fast; returning to GPT 6.2 Sol or Astra resumes Ultrafast. The footer and status show the effective mode.
+- Selecting Ultrafast on an older or unsupported model is rejected without changing the preference. Changing to an enabled mode requires an idle session.
+- `/fast off` is respected across model switches. Reloading or starting/resuming a session resets to Fast by default.
+- The footer shows `fast` or `ultrafast` and disappears when disabled or using an unsupported model.
+- Speed tiers can increase API costs or subscription usage. Pi's reported costs may not reflect Ultrafast pricing. The tag indicates the requested tier, not account eligibility or a guarantee of actual served speed.
+- OpenAI documents Ultrafast support for API keys and Codex. Availability through native Pi OAuth on its direct route has not been independently verified. This extension does not change authentication or establish entitlement.
 
 ## Development
 

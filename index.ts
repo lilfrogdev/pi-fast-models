@@ -4,16 +4,21 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-const MODEL_IDS = new Set([
-  "gpt-6.1-sol",
-  "gpt-6-astra",
-  "gpt-6-sol",
-  "gpt-6-luna",
-  "gpt-5.4",
-  "gpt-5.5",
-  "gpt-5.6-luna",
-  "gpt-5.6-sol",
-  "gpt-5.6-terra",
+type SpeedMode = "off" | "fast" | "ultrafast";
+type EnabledMode = Exclude<SpeedMode, "off">;
+
+const MODEL_CAPABILITIES = new Map<string, EnabledMode>([
+  ["gpt-6.2-sol", "ultrafast"],
+  ["gpt-6.2-astra", "ultrafast"],
+  ["gpt-6.1-sol", "fast"],
+  ["gpt-6-astra", "fast"],
+  ["gpt-6-sol", "fast"],
+  ["gpt-6-luna", "fast"],
+  ["gpt-5.4", "fast"],
+  ["gpt-5.5", "fast"],
+  ["gpt-5.6-luna", "fast"],
+  ["gpt-5.6-sol", "fast"],
+  ["gpt-5.6-terra", "fast"],
 ]);
 
 type Model = ExtensionContext["model"];
@@ -21,7 +26,7 @@ type Model = ExtensionContext["model"];
 function supportsModel(model: Model): model is NonNullable<Model> {
   if (
     model?.provider !== "openai" ||
-    !MODEL_IDS.has(model.id) ||
+    !MODEL_CAPABILITIES.has(model.id) ||
     model.api !== "openai-responses"
   ) {
     return false;
@@ -56,14 +61,18 @@ function notify(
 }
 
 export default function fastModels(pi: ExtensionAPI): void {
-  let preference: boolean | undefined;
+  let preference: SpeedMode = "fast";
   let restoreFooter: (() => void) | undefined;
 
-  function isEnabled(model: Model): boolean {
-    return supportsModel(model) && preference !== false;
+  function effectiveMode(model: Model): SpeedMode {
+    if (!supportsModel(model) || preference === "off") return "off";
+    return preference === "ultrafast" && MODEL_CAPABILITIES.get(model.id) === "ultrafast"
+      ? "ultrafast"
+      : "fast";
   }
 
-  function requestedTier(ctx: ExtensionContext): "fast" | "priority" {
+  function requestedTier(ctx: ExtensionContext, mode: EnabledMode): "fast" | "priority" | "ultrafast" {
+    if (mode === "ultrafast") return "ultrafast";
     return ctx.model && ctx.modelRegistry.isUsingOAuth(ctx.model) ? "priority" : "fast";
   }
 
@@ -71,14 +80,15 @@ export default function fastModels(pi: ExtensionAPI): void {
     if (ctx.mode !== "tui") return;
     restoreFooter?.();
     restoreFooter = undefined;
-    if (!isEnabled(model)) return;
+    if (effectiveMode(model) === "off") return;
 
     const originalRender = FooterComponent.prototype.render;
     const render: typeof originalRender = function (this: FooterComponent, width) {
       const lines = originalRender.call(this, width);
-      if (!isEnabled(ctx.model)) return lines;
+      const mode = effectiveMode(ctx.model);
+      if (mode === "off") return lines;
 
-      const prefix = "fast • ";
+      const prefix = `${mode} • `;
       if (width <= prefix.length) return lines;
       const compactLine = originalRender.call(this, width - prefix.length)[1];
       const index = compactLine?.indexOf(ctx.model!.id) ?? -1;
@@ -98,7 +108,7 @@ export default function fastModels(pi: ExtensionAPI): void {
   }
 
   pi.on("session_start", (_event, ctx) => {
-    preference = undefined;
+    preference = "fast";
     updateFooter(ctx);
   });
 
@@ -112,9 +122,9 @@ export default function fastModels(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("fast", {
-    description: "Toggle fast mode (on by default) for supported OpenAI models: /fast [on|off|status]",
+    description: "Toggle Fast (default) or opt into Ultrafast for supported OpenAI models: /fast [on|off|ultrafast|status]",
     getArgumentCompletions: (prefix) => {
-      const choices = ["on", "off", "status"].filter((value) =>
+      const choices = ["on", "off", "ultrafast", "status"].filter((value) =>
         value.startsWith(prefix.toLowerCase()),
       );
       return choices.length
@@ -123,23 +133,27 @@ export default function fastModels(pi: ExtensionAPI): void {
     },
     handler: async (args, ctx) => {
       const action = args.trim().toLowerCase();
-      if (!["", "on", "off", "status"].includes(action)) {
-        notify(ctx, "Usage: /fast [on|off|status]", "warning");
+      if (!["", "on", "off", "ultrafast", "status"].includes(action)) {
+        notify(ctx, "Usage: /fast [on|off|ultrafast|status]", "warning");
         return;
       }
 
+      const mode = effectiveMode(ctx.model);
       if (action === "status") {
         notify(
           ctx,
-          isEnabled(ctx.model)
-            ? `Fast mode ON for ${ctx.model!.provider}/${ctx.model!.id}: requesting service_tier="${requestedTier(ctx)}".`
-            : `Fast mode OFF.${supportsModel(ctx.model) ? " Use /fast on to enable." : " Select a supported OpenAI model to use fast mode."}`,
+          (mode !== "off"
+            ? `${mode === "ultrafast" ? "Ultrafast" : "Fast"} mode ON for ${ctx.model!.provider}/${ctx.model!.id}: requesting service_tier="${requestedTier(ctx, mode)}".`
+            : `Fast mode OFF.${supportsModel(ctx.model) ? " Use /fast on to enable." : " Select a supported OpenAI model to use fast mode."}`)
+            + ` Session preference: ${preference}.`,
         );
         return;
       }
 
-      const next = action === "" ? !isEnabled(ctx.model) : action === "on";
-      if (next && !supportsModel(ctx.model)) {
+      const next: SpeedMode = action === ""
+        ? (mode === "off" ? "fast" : "off")
+        : action === "off" ? "off" : action === "ultrafast" ? "ultrafast" : "fast";
+      if (next !== "off" && !supportsModel(ctx.model)) {
         notify(
           ctx,
           "Fast mode requires a supported OpenAI model on an official OpenAI endpoint. Select one with /model first.",
@@ -147,8 +161,12 @@ export default function fastModels(pi: ExtensionAPI): void {
         );
         return;
       }
-      if (next && !isEnabled(ctx.model) && !ctx.isIdle()) {
-        notify(ctx, "Wait for the current run to finish, or abort it, before enabling fast mode.", "warning");
+      if (next === "ultrafast" && MODEL_CAPABILITIES.get(ctx.model!.id) !== "ultrafast") {
+        notify(ctx, "Ultrafast requires a supported GPT 6.2 Sol or Astra model. Session preference unchanged.", "warning");
+        return;
+      }
+      if (next !== "off" && next !== mode && !ctx.isIdle()) {
+        notify(ctx, "Wait for the current run to finish, or abort it, before changing to an enabled speed mode.", "warning");
         return;
       }
 
@@ -158,7 +176,8 @@ export default function fastModels(pi: ExtensionAPI): void {
   });
 
   pi.on("before_provider_request", (event, ctx) => {
-    if (!isEnabled(ctx.model)) return;
+    const mode = effectiveMode(ctx.model);
+    if (mode === "off") return;
     const payload = event.payload;
     if (
       payload === null ||
@@ -170,6 +189,6 @@ export default function fastModels(pi: ExtensionAPI): void {
       return;
     }
 
-    return { ...payload, service_tier: requestedTier(ctx) };
+    return { ...payload, service_tier: requestedTier(ctx, mode) };
   });
 }
